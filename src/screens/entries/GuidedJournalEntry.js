@@ -1,179 +1,277 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
-import Slider from "@react-native-community/slider";
-import { Ionicons } from "@expo/vector-icons";
-import Svg, { Path } from "react-native-svg";
-import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Slider from '@react-native-community/slider';
+import { Ionicons } from '@expo/vector-icons';
+import emotionsObject from './emotionsObject';
 
-const MoodMeter = ({ navigation }) => {
-  const [sliderValue, setSliderValue] = useState(null); // Null until slider is moved
-  const width = Dimensions.get("window").width * 0.8;
-  const radius = width / 2;
+const { width, height } = Dimensions.get('window');
+const NAVBAR_HEIGHT = 56;
+const STATUSBAR_HEIGHT = Platform.OS === 'android' ? 24 : 0;
 
-  const moods = [
-    "Very Unpleasant",
-    "Slightly Unpleasant",
-    "Neutral",
-    "Slightly Pleasant",
-    "Very Pleasant",
-  ];
+const GuidedJournalEntry = ({ route, navigation }) => {
+  const { selectedEmotions } = route.params;
 
-  const gradientColors = [
-    "#ffc9bc", // Very Unpleasant (Red)
-    "#ffddbc", // Slightly Unpleasant
-    "#FCFFBF", // Neutral
-    "#dbffbc", // Slightly Pleasant
-    "#bceaff", // Very Pleasant
-  ];
+  const [selectedEmotion, setSelectedEmotion] = useState(null);
+  const [journalModalVisible, setJournalModalVisible] = useState(false);
+  const [journalEntry, setJournalEntry] = useState('');
+  const [emotionIntensity, setEmotionIntensity] = useState(5);
+  const [savedEntries, setSavedEntries] = useState({});
 
-  const getMood = (value) => {
-    if (value <= 20) return moods[0];
-    if (value <= 40) return moods[1];
-    if (value <= 60) return moods[2];
-    if (value <= 80) return moods[3];
-    return moods[4];
-  };
-
-  const calculateColor = (value) => {
-    if (value === null) return gradientColors[0]; // Default to red if no slider interaction
-
-    const index = Math.floor(value / 20);
-    const nextIndex = Math.min(index + 1, gradientColors.length - 1);
-    const ratio = (value % 20) / 20;
-
-    const interpolate = (start, end, ratio) =>
-      Math.round(start + (end - start) * ratio);
-
-    const hexToRgb = (hex) => {
-      const bigint = parseInt(hex.slice(1), 16);
-      return [bigint >> 16, (bigint >> 8) & 255, bigint & 255];
+  const handleSave = () => {
+    const updated = {
+      ...savedEntries,
+      [selectedEmotion]: {
+        text: journalEntry,
+        intensity: emotionIntensity,
+      },
     };
-
-    const rgbToHex = (r, g, b) =>
-      `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-
-    const startColor = hexToRgb(gradientColors[index]);
-    const endColor = hexToRgb(gradientColors[nextIndex]);
-
-    const interpolatedColor = startColor.map((start, i) =>
-      interpolate(start, endColor[i], ratio)
-    );
-
-    return rgbToHex(...interpolatedColor);
+    setSavedEntries(updated);
+    setJournalModalVisible(false);
+    setJournalEntry('');
+    setEmotionIntensity(5);
   };
 
-  const currentColor = calculateColor(sliderValue);
+  const getEmotionPrompt = (emotion) => {
+    for (const category of Object.keys(emotionsObject)) {
+      if (emotionsObject[category][emotion]) {
+        return emotionsObject[category][emotion][0];
+      }
+    }
+    return '';
+  };
 
   return (
-    <ExpoLinearGradient
-      colors={["#021638", "#AAC1E7"]}
-      style={styles.container}
-    >
-      {/* Navigation Bar */}
-      <View style={styles.navBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
+    <LinearGradient colors={['#021638', '#AAC1E7']} style={styles.container}>
+      <View style={styles.pageWrapper}>
+        <View style={styles.navBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.content}>
+          <Text style={styles.title}>Reflect on Your Emotions</Text>
+          <Text style={styles.subtext}>Tap an emotion to write and rate it</Text>
+
+          <View style={styles.emotionButtonContainer}>
+            {selectedEmotions.map((emotion) => (
+              <TouchableOpacity
+                key={emotion}
+                style={styles.largeEmotionButton}
+                onPress={() => {
+                  setSelectedEmotion(emotion);
+                  const prev = savedEntries[emotion] || {};
+                  setJournalEntry(prev.text || '');
+                  setEmotionIntensity(prev.intensity || 5);
+                  setJournalModalVisible(true);
+                }}
+              >
+                <Text style={styles.largeEmotionText}>{emotion}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       </View>
 
-      <View>
-        <Text style={styles.titleText}>How are you feeling today?</Text>
-      </View>
-
-      {/* Semi-circle Meter */}
-      <View style={styles.moodColor}>
-        <Svg height={radius} width={width} viewBox={`0 0 ${width} ${radius}`}>
-          <Path
-            d={`M0,${radius} A${radius},${radius} 0 0,1 ${width},${radius}`}
-            fill={currentColor} // Start with red, update as slider moves
-          />
-        </Svg>
-      </View>
-
-      {/* Slider */}
-      <Slider
-        style={styles.slider}
-        minimumValue={0}
-        maximumValue={90}
-        step={1}
-        value={sliderValue || 0}
-        onValueChange={(value) => setSliderValue(value)}
-        minimumTrackTintColor="#142330"
-        maximumTrackTintColor="#A0C4E7"
-        thumbTintColor="#000"
-      />
-
-      {/* Mood Display */}
-      <Text style={styles.moodText}>
-        Mood: <Text style={styles.moodValue}>{getMood(sliderValue || 0)}</Text>
-      </Text>
-      <TouchableOpacity
-        style={styles.nextButton}
-        onPress={() => navigation.navigate("GuidedJournalEntrySpecificEmotion", {
-          selectedEmotionCategory: getMood(sliderValue || 0),
-        })}
+      <Modal
+        visible={journalModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setJournalModalVisible(false)}
       >
-        <Text style={styles.nextButtonText}>Next</Text>
-      </TouchableOpacity>
-    </ExpoLinearGradient>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Feeling "{selectedEmotion}"</Text>
+              <Text style={styles.sliderLabel}>How strongly are you feeling this?</Text>
+              <Slider
+                style={styles.slider}
+                minimumValue={1}
+                maximumValue={10}
+                step={1}
+                value={emotionIntensity}
+                onValueChange={setEmotionIntensity}
+                minimumTrackTintColor="#637AA8"
+                maximumTrackTintColor="#ccc"
+                thumbTintColor="#637AA8"
+              />
+              <Text style={styles.sliderValue}>{emotionIntensity}/10</Text>
+              <Text style={styles.modalPrompt}>{getEmotionPrompt(selectedEmotion)}</Text>
+              <View style={styles.scrollableInputArea}>
+                <TextInput
+                  style={styles.modalInputLarge}
+                  placeholder="Write your thoughts..."
+                  multiline
+                  value={journalEntry}
+                  onChangeText={setJournalEntry}
+                  blurOnSubmit={true}
+                  textAlignVertical="top"
+                  placeholderTextColor="#999"
+                  scrollEnabled={true}
+                />
+              </View>
+              <TouchableOpacity style={styles.modalSaveButton} onPress={handleSave}>
+                <Text style={styles.modalSaveButtonText}>Save Reflection</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: "100%",
-    minHeight: Dimensions.get("window").height,
-    alignItems: "center",
+  },
+  pageWrapper: {
+    flex: 1,
+    paddingTop: STATUSBAR_HEIGHT,
   },
   navBar: {
-    justifyContent: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: 15,
-    backgroundColor: "#021638",
-  },
-  titleText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "white",
-    marginTop: 80,
+    backgroundColor: '#021638',
+    zIndex: 10,
   },
   backButton: {
     padding: 5,
-    marginTop: 5,
-    paddingLeft: 10,
   },
-  moodColor: {
-    marginTop: 70,
+  content: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  moodText: {
+  title: {
     fontSize: 24,
-    fontWeight: "bold",
-    color: "#021638",
+    color: '#fff',
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
   },
-  moodValue: {
-    color: "#021638",
+  subtext: {
+    fontSize: 14,
+    color: '#e0e0e0',
+    textAlign: 'center',
+    marginBottom:40
+  },
+  emotionButtonContainer: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 100
+  },
+  largeEmotionButton: {
+    backgroundColor: '#2C3E60',
+    width: '65%',
+    paddingVertical: 14,
+    borderRadius: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: 'white',
+  },
+  largeEmotionText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 28,
+    borderRadius: 24,
+    width: width * 0.92,
+    height: height * 0.75,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 20,
+    color: '#021638',
+  },
+  sliderLabel: {
+    marginBottom: 8,
+    color: '#333',
+    fontWeight: '500',
+    fontSize: 16,
   },
   slider: {
-    width: "80%",
-    marginTop: 20,
+    width: '100%',
   },
-  nextButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    marginTop: 30,
-    backgroundColor: "#AAC1E7",
-    borderRadius: 5,
+  sliderValue: {
+    textAlign: 'center',
+    marginBottom: 16,
+    color: '#444',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
-  nextButtonText: {
-    fontSize: 18,
-    color: "white",
-    fontWeight: "bold",
+  modalPrompt: {
+    fontSize: 16,
+    color: '#16305c',
+    marginBottom: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  scrollableInputArea: {
+    flex: 1,
+    marginBottom: 20,
+  },
+  modalInputLarge: {
+    flex: 1,
+    minHeight: 180,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#333',
+    textAlignVertical: 'top',
+  },
+  modalSaveButton: {
+    backgroundColor: '#637AA8',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalSaveButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 17,
   },
 });
 
-export default MoodMeter;
+export default GuidedJournalEntry;

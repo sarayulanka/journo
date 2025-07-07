@@ -18,7 +18,7 @@ const HomeScreen = ({ navigation }) => {
          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('AllEntries')}>
            <Text style={styles.buttonText}>View All Entries</Text>
          </TouchableOpacity>
-         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GuidedJournalEntry')}>
+         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GuidedJournalEntryOverallMood')}>
            <Text style={styles.buttonText}>Guided Journal Entry</Text>
          </TouchableOpacity>
          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('FreestyleJournalEntry')}>
